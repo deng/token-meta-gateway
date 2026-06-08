@@ -80,6 +80,54 @@ export const openApiSpec = {
         },
       },
     },
+    '/api/v1/tokens/{chain}/batch': {
+      post: {
+        summary: 'Batch token metadata query',
+        description: 'Query multiple token metadata entries for the same chain. Checks cache → KV → external sources (CoinGecko → RPC). Returns results in the same order as the input addresses array.',
+        tags: ['Tokens'],
+        parameters: [
+          { name: 'chain', in: 'path', required: true, schema: { type: 'string' }, example: 'eip155:1' },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  addresses: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    example: ['0xdAC17F958D2ee523a2206206994597C13D831ec7', '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'],
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Batch token metadata',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'array',
+                      items: { $ref: '#/components/schemas/TokenMeta' },
+                      nullable: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': { description: 'Invalid request — addresses field missing or empty' },
+        },
+      },
+    },
   },
   components: {
     schemas: {

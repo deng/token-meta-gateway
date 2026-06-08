@@ -10,7 +10,7 @@ const app = new Hono<{ Bindings: Env }>();
 
 app.use('*', cors({
   origin: '*',
-  allowMethods: ['GET', 'OPTIONS'],
+  allowMethods: ['GET', 'POST', 'OPTIONS'],
   allowHeaders: ['Content-Type'],
   maxAge: 86400,
 }));
@@ -344,6 +344,68 @@ app.get('/api/v1/tokens/:chain/:contractAddress', async (c) => {
     return c.json({ success: false, error: 'Token not found' }, 404);
   }
   return c.json({ success: true, data: proxyLogoUrl(data, origin) });
+});
+
+// Batch token query — same chain, multiple contract addresses
+app.post('/api/v1/tokens/:chain/batch', async (c) => {
+  if (!seeded) { seeded = true; seedBuiltin(c.env.TOKEN_META, new Set()); }
+
+  const { chain } = c.req.param();
+  const { addresses } = await c.req.json() as { addresses?: string[] };
+
+  if (!addresses || !Array.isArray(addresses) || addresses.length === 0) {
+    return c.json({ success: false, error: 'Field "addresses" is required' }, 400);
+  }
+
+  const ttl = parseInt(c.env.TOKEN_META_CACHE_TTL || '300', 10);
+  const timeout = parseInt(c.env.REQUEST_TIMEOUT_SECS || '10', 10);
+  const origin = new URL(c.req.url).origin;
+
+  // First pass: gather from cache and KV in parallel
+  const results: (TokenMeta | null)[] = new Array(addresses.length).fill(null);
+  const missing: number[] = [];
+
+  await Promise.all(addresses.map(async (addr, i) => {
+    const key = kvKey(chain, addr);
+    let token = cacheGet(key);
+    if (!token) {
+      token = await c.env.TOKEN_META.get(key, 'json') as TokenMeta | null;
+      if (token) cacheSet(key, token, ttl);
+    }
+    if (token) {
+      results[i] = token;
+    } else {
+      missing.push(i);
+    }
+  }));
+
+  // Second pass: fetch missing from external sources in parallel with dedup
+  if (missing.length > 0) {
+    await Promise.allSettled(missing.map(async (i) => {
+      const addr = addresses[i];
+      const key = kvKey(chain, addr);
+
+      let pending = pendingFetches.get(key);
+      if (!pending) {
+        pending = fetchFromExternal(chain, addr, timeout)
+          .then(async (result) => {
+            if (result) {
+              await c.env.TOKEN_META.put(key, JSON.stringify(result));
+              cacheSet(key, result, ttl);
+            }
+            pendingFetches.delete(key);
+            return result;
+          });
+        pendingFetches.set(key, pending);
+      }
+
+      const token = await pending;
+      if (token) results[i] = token;
+    }));
+  }
+
+  const data = results.map(r => r ? proxyLogoUrl(r, origin) : null);
+  return c.json({ success: true, data });
 });
 
 // Logo proxy — prefer CoinGecko image from KV, fall back to Trust Wallet CDN
