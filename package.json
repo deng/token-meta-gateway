@@ -1,0 +1,25 @@
+{
+  "name": "token-meta-gateway",
+  "version": "0.1.0",
+  "description": "Token metadata gateway for ZeroWallet — KV-backed symbol/decimals/name lookup by chain + contract address",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "dotenv -- wrangler deploy",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "generate-sdk": "bash scripts/generate-flutter-sdk.sh"
+  },
+  "dependencies": {
+    "@hono/swagger-ui": "^0.6.1",
+    "hono": "^4.12.16"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.0.0",
+    "@types/node": "^25.6.2",
+    "dotenv-cli": "^11.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0",
+    "wrangler": "^3.0.0"
+  }
+}

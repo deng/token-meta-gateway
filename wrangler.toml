@@ -1,0 +1,17 @@
+name = "token-meta"
+main = "src/index.ts"
+compatibility_date = "2025-07-18"
+workers_dev = true
+
+routes = [
+	{ pattern = "token-meta.bithub.pro/*", zone_id = "a2377099496ecf3fe85caa580e64b070" }
+]
+
+[vars]
+TOKEN_META_CACHE_TTL = "300"
+REQUEST_TIMEOUT_SECS = "10"
+
+[[kv_namespaces]]
+binding = "TOKEN_META"
+id = ""
+preview_id = ""
