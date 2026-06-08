@@ -2,7 +2,7 @@ export const openApiSpec = {
   openapi: '3.0.3',
   info: {
     title: 'Token Metadata Gateway',
-    description: 'Token metadata lookup by chain (CAIP-2) and contract address. Caches in KV on first lookup. Sources: CoinGecko API → on-chain ERC20 eth_call → Trust Wallet assets for logo.',
+    description: 'Token metadata lookup by chain (CAIP-2) and contract address. Caches in KV on first lookup. Sources: CoinGecko API → on-chain ERC20 eth_call → Trust Wallet assets for logo. Logo images served via gateway proxy (no external CDN access needed).',
     version: '0.1.0',
   },
   servers: [
@@ -59,6 +59,24 @@ export const openApiSpec = {
             },
           },
           '404': { description: 'Token not found' },
+        },
+      },
+    },
+    '/api/v1/tokens/{chain}/{contractAddress}/logo': {
+      get: {
+        summary: 'Get token logo',
+        description: 'Proxy token logo image from external CDN (CoinGecko or Trust Wallet). Returns the image bytes directly with edge caching.',
+        tags: ['Tokens'],
+        parameters: [
+          { name: 'chain', in: 'path', required: true, schema: { type: 'string' }, example: 'eip155:1' },
+          { name: 'contractAddress', in: 'path', required: true, schema: { type: 'string' }, example: '0xdAC17F958D2ee523a2206206994597C13D831ec7' },
+        ],
+        responses: {
+          '200': {
+            description: 'Logo image (PNG)',
+            content: { 'image/png': { schema: { type: 'string', format: 'binary' } } },
+          },
+          '404': { description: 'Logo not found or chain not supported' },
         },
       },
     },

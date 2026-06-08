@@ -8,7 +8,7 @@
     "deploy": "dotenv -- wrangler deploy",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "generate-sdk": "bash scripts/generate-flutter-sdk.sh"
+    "generate-sdk": "bash scripts/generate-sdk.sh"
   },
   "dependencies": {
     "@hono/swagger-ui": "^0.6.1",
