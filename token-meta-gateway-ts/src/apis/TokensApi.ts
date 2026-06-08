@@ -15,12 +15,23 @@
 
 import * as runtime from '../runtime';
 import type {
+  ApiV1TokensChainBatchPost200Response,
+  ApiV1TokensChainBatchPostRequest,
   ApiV1TokensChainContractAddressGet200Response,
 } from '../models/index';
 import {
+    ApiV1TokensChainBatchPost200ResponseFromJSON,
+    ApiV1TokensChainBatchPost200ResponseToJSON,
+    ApiV1TokensChainBatchPostRequestFromJSON,
+    ApiV1TokensChainBatchPostRequestToJSON,
     ApiV1TokensChainContractAddressGet200ResponseFromJSON,
     ApiV1TokensChainContractAddressGet200ResponseToJSON,
 } from '../models/index';
+
+export interface ApiV1TokensChainBatchPostOperationRequest {
+    chain: string;
+    apiV1TokensChainBatchPostRequest: ApiV1TokensChainBatchPostRequest;
+}
 
 export interface ApiV1TokensChainContractAddressGetRequest {
     chain: string;
@@ -40,6 +51,32 @@ export interface ApiV1TokensChainContractAddressLogoGetRequest {
  * @interface TokensApiInterface
  */
 export interface TokensApiInterface {
+    /**
+     * Creates request options for apiV1TokensChainBatchPost without sending the request
+     * @param {string} chain 
+     * @param {ApiV1TokensChainBatchPostRequest} apiV1TokensChainBatchPostRequest 
+     * @throws {RequiredError}
+     * @memberof TokensApiInterface
+     */
+    apiV1TokensChainBatchPostRequestOpts(requestParameters: ApiV1TokensChainBatchPostOperationRequest): Promise<runtime.RequestOpts>;
+
+    /**
+     * Query multiple token metadata entries for the same chain. Checks cache → KV → external sources (CoinGecko → RPC). Returns results in the same order as the input addresses array.
+     * @summary Batch token metadata query
+     * @param {string} chain 
+     * @param {ApiV1TokensChainBatchPostRequest} apiV1TokensChainBatchPostRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof TokensApiInterface
+     */
+    apiV1TokensChainBatchPostRaw(requestParameters: ApiV1TokensChainBatchPostOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<ApiV1TokensChainBatchPost200Response>>;
+
+    /**
+     * Query multiple token metadata entries for the same chain. Checks cache → KV → external sources (CoinGecko → RPC). Returns results in the same order as the input addresses array.
+     * Batch token metadata query
+     */
+    apiV1TokensChainBatchPost(requestParameters: ApiV1TokensChainBatchPostOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ApiV1TokensChainBatchPost200Response>;
+
     /**
      * Creates request options for apiV1TokensChainContractAddressGet without sending the request
      * @param {string} chain 
@@ -100,6 +137,63 @@ export interface TokensApiInterface {
  * 
  */
 export class TokensApi extends runtime.BaseAPI implements TokensApiInterface {
+
+    /**
+     * Creates request options for apiV1TokensChainBatchPost without sending the request
+     */
+    async apiV1TokensChainBatchPostRequestOpts(requestParameters: ApiV1TokensChainBatchPostOperationRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['chain'] == null) {
+            throw new runtime.RequiredError(
+                'chain',
+                'Required parameter "chain" was null or undefined when calling apiV1TokensChainBatchPost().'
+            );
+        }
+
+        if (requestParameters['apiV1TokensChainBatchPostRequest'] == null) {
+            throw new runtime.RequiredError(
+                'apiV1TokensChainBatchPostRequest',
+                'Required parameter "apiV1TokensChainBatchPostRequest" was null or undefined when calling apiV1TokensChainBatchPost().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+
+        let urlPath = `/api/v1/tokens/{chain}/batch`;
+        urlPath = urlPath.replace(`{${"chain"}}`, encodeURIComponent(String(requestParameters['chain'])));
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+            body: ApiV1TokensChainBatchPostRequestToJSON(requestParameters['apiV1TokensChainBatchPostRequest']),
+        };
+    }
+
+    /**
+     * Query multiple token metadata entries for the same chain. Checks cache → KV → external sources (CoinGecko → RPC). Returns results in the same order as the input addresses array.
+     * Batch token metadata query
+     */
+    async apiV1TokensChainBatchPostRaw(requestParameters: ApiV1TokensChainBatchPostOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<ApiV1TokensChainBatchPost200Response>> {
+        const requestOptions = await this.apiV1TokensChainBatchPostRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => ApiV1TokensChainBatchPost200ResponseFromJSON(jsonValue));
+    }
+
+    /**
+     * Query multiple token metadata entries for the same chain. Checks cache → KV → external sources (CoinGecko → RPC). Returns results in the same order as the input addresses array.
+     * Batch token metadata query
+     */
+    async apiV1TokensChainBatchPost(requestParameters: ApiV1TokensChainBatchPostOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ApiV1TokensChainBatchPost200Response> {
+        const response = await this.apiV1TokensChainBatchPostRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
 
     /**
      * Creates request options for apiV1TokensChainContractAddressGet without sending the request

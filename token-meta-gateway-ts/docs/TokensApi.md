@@ -4,9 +4,81 @@ All URIs are relative to *https://token-meta.bithub.pro*
 
 | Method | HTTP request | Description |
 |------------- | ------------- | -------------|
+| [**apiV1TokensChainBatchPost**](TokensApi.md#apiv1tokenschainbatchpostoperation) | **POST** /api/v1/tokens/{chain}/batch | Batch token metadata query |
 | [**apiV1TokensChainContractAddressGet**](TokensApi.md#apiv1tokenschaincontractaddressget) | **GET** /api/v1/tokens/{chain}/{contractAddress} | Get token metadata |
 | [**apiV1TokensChainContractAddressLogoGet**](TokensApi.md#apiv1tokenschaincontractaddresslogoget) | **GET** /api/v1/tokens/{chain}/{contractAddress}/logo | Get token logo |
 
+
+
+## apiV1TokensChainBatchPost
+
+> ApiV1TokensChainBatchPost200Response apiV1TokensChainBatchPost(chain, apiV1TokensChainBatchPostRequest)
+
+Batch token metadata query
+
+Query multiple token metadata entries for the same chain. Checks cache → KV → external sources (CoinGecko → RPC). Returns results in the same order as the input addresses array.
+
+### Example
+
+```ts
+import {
+  Configuration,
+  TokensApi,
+} from 'token-meta-gateway';
+import type { ApiV1TokensChainBatchPostOperationRequest } from 'token-meta-gateway';
+
+async function example() {
+  console.log("🚀 Testing token-meta-gateway SDK...");
+  const api = new TokensApi();
+
+  const body = {
+    // string
+    chain: eip155:1,
+    // ApiV1TokensChainBatchPostRequest
+    apiV1TokensChainBatchPostRequest: ...,
+  } satisfies ApiV1TokensChainBatchPostOperationRequest;
+
+  try {
+    const data = await api.apiV1TokensChainBatchPost(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **chain** | `string` |  | [Defaults to `undefined`] |
+| **apiV1TokensChainBatchPostRequest** | [ApiV1TokensChainBatchPostRequest](ApiV1TokensChainBatchPostRequest.md) |  | |
+
+### Return type
+
+[**ApiV1TokensChainBatchPost200Response**](ApiV1TokensChainBatchPost200Response.md)
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+- **Content-Type**: `application/json`
+- **Accept**: `application/json`
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | Batch token metadata |  -  |
+| **400** | Invalid request — addresses field missing or empty |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
 
 ## apiV1TokensChainContractAddressGet

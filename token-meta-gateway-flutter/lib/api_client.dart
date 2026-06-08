@@ -182,6 +182,10 @@ class ApiClient {
           return valueString == 'true' || valueString == '1';
         case 'DateTime':
           return value is DateTime ? value : DateTime.tryParse(value);
+        case 'ApiV1TokensChainBatchPost200Response':
+          return ApiV1TokensChainBatchPost200Response.fromJson(value);
+        case 'ApiV1TokensChainBatchPostRequest':
+          return ApiV1TokensChainBatchPostRequest.fromJson(value);
         case 'ApiV1TokensChainContractAddressGet200Response':
           return ApiV1TokensChainContractAddressGet200Response.fromJson(value);
         case 'HealthGet200Response':

@@ -59,12 +59,15 @@ All URIs are relative to *https://token-meta.bithub.pro*
 Class | Method | HTTP request | Description
 ------------ | ------------- | ------------- | -------------
 *SystemApi* | [**healthGet**](doc//SystemApi.md#healthget) | **GET** /health | Health check
+*TokensApi* | [**apiV1TokensChainBatchPost**](doc//TokensApi.md#apiv1tokenschainbatchpost) | **POST** /api/v1/tokens/{chain}/batch | Batch token metadata query
 *TokensApi* | [**apiV1TokensChainContractAddressGet**](doc//TokensApi.md#apiv1tokenschaincontractaddressget) | **GET** /api/v1/tokens/{chain}/{contractAddress} | Get token metadata
 *TokensApi* | [**apiV1TokensChainContractAddressLogoGet**](doc//TokensApi.md#apiv1tokenschaincontractaddresslogoget) | **GET** /api/v1/tokens/{chain}/{contractAddress}/logo | Get token logo
 
 
 ## Documentation For Models
 
+ - [ApiV1TokensChainBatchPost200Response](doc//ApiV1TokensChainBatchPost200Response.md)
+ - [ApiV1TokensChainBatchPostRequest](doc//ApiV1TokensChainBatchPostRequest.md)
  - [ApiV1TokensChainContractAddressGet200Response](doc//ApiV1TokensChainContractAddressGet200Response.md)
  - [HealthGet200Response](doc//HealthGet200Response.md)
  - [TokenMeta](doc//TokenMeta.md)

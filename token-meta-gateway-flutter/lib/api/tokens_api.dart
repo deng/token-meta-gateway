@@ -16,6 +16,67 @@ class TokensApi {
 
   final ApiClient apiClient;
 
+  /// Batch token metadata query
+  ///
+  /// Query multiple token metadata entries for the same chain. Checks cache → KV → external sources (CoinGecko → RPC). Returns results in the same order as the input addresses array.
+  ///
+  /// Note: This method returns the HTTP [Response].
+  ///
+  /// Parameters:
+  ///
+  /// * [String] chain (required):
+  ///
+  /// * [ApiV1TokensChainBatchPostRequest] apiV1TokensChainBatchPostRequest (required):
+  Future<Response> apiV1TokensChainBatchPostWithHttpInfo(String chain, ApiV1TokensChainBatchPostRequest apiV1TokensChainBatchPostRequest,) async {
+    // ignore: prefer_const_declarations
+    final path = r'/api/v1/tokens/{chain}/batch'
+      .replaceAll('{chain}', chain);
+
+    // ignore: prefer_final_locals
+    Object? postBody = apiV1TokensChainBatchPostRequest;
+
+    final queryParams = <QueryParam>[];
+    final headerParams = <String, String>{};
+    final formParams = <String, String>{};
+
+    const contentTypes = <String>['application/json'];
+
+
+    return apiClient.invokeAPI(
+      path,
+      'POST',
+      queryParams,
+      postBody,
+      headerParams,
+      formParams,
+      contentTypes.isEmpty ? null : contentTypes.first,
+    );
+  }
+
+  /// Batch token metadata query
+  ///
+  /// Query multiple token metadata entries for the same chain. Checks cache → KV → external sources (CoinGecko → RPC). Returns results in the same order as the input addresses array.
+  ///
+  /// Parameters:
+  ///
+  /// * [String] chain (required):
+  ///
+  /// * [ApiV1TokensChainBatchPostRequest] apiV1TokensChainBatchPostRequest (required):
+  Future<ApiV1TokensChainBatchPost200Response?> apiV1TokensChainBatchPost(String chain, ApiV1TokensChainBatchPostRequest apiV1TokensChainBatchPostRequest,) async {
+    final response = await apiV1TokensChainBatchPostWithHttpInfo(chain, apiV1TokensChainBatchPostRequest,);
+    if (response.statusCode >= HttpStatus.badRequest) {
+      throw ApiException(response.statusCode, await _decodeBodyBytes(response));
+    }
+    // When a remote server returns no body with a status of 204, we shall not decode it.
+    // At the time of writing this, `dart:convert` will throw an "Unexpected end of input"
+    // FormatException when trying to decode an empty string.
+    if (response.body.isNotEmpty && response.statusCode != HttpStatus.noContent) {
+      return await apiClient.deserializeAsync(await _decodeBodyBytes(response), 'ApiV1TokensChainBatchPost200Response',) as ApiV1TokensChainBatchPost200Response;
+    
+    }
+    return null;
+  }
+
   /// Get token metadata
   ///
   /// Fetch metadata for a specific token by chain and contract address. On first lookup, sources from CoinGecko → on-chain RPC eth_call. Supports ?force=true to skip cache and refresh from external sources.

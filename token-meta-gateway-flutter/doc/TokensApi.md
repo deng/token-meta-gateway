@@ -9,9 +9,55 @@ All URIs are relative to *https://token-meta.bithub.pro*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------
+[**apiV1TokensChainBatchPost**](TokensApi.md#apiv1tokenschainbatchpost) | **POST** /api/v1/tokens/{chain}/batch | Batch token metadata query
 [**apiV1TokensChainContractAddressGet**](TokensApi.md#apiv1tokenschaincontractaddressget) | **GET** /api/v1/tokens/{chain}/{contractAddress} | Get token metadata
 [**apiV1TokensChainContractAddressLogoGet**](TokensApi.md#apiv1tokenschaincontractaddresslogoget) | **GET** /api/v1/tokens/{chain}/{contractAddress}/logo | Get token logo
 
+
+# **apiV1TokensChainBatchPost**
+> ApiV1TokensChainBatchPost200Response apiV1TokensChainBatchPost(chain, apiV1TokensChainBatchPostRequest)
+
+Batch token metadata query
+
+Query multiple token metadata entries for the same chain. Checks cache → KV → external sources (CoinGecko → RPC). Returns results in the same order as the input addresses array.
+
+### Example
+```dart
+import 'package:token_meta_gateway/api.dart';
+
+final api_instance = TokensApi();
+final chain = eip155:1; // String | 
+final apiV1TokensChainBatchPostRequest = ApiV1TokensChainBatchPostRequest(); // ApiV1TokensChainBatchPostRequest | 
+
+try {
+    final result = api_instance.apiV1TokensChainBatchPost(chain, apiV1TokensChainBatchPostRequest);
+    print(result);
+} catch (e) {
+    print('Exception when calling TokensApi->apiV1TokensChainBatchPost: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **chain** | **String**|  | 
+ **apiV1TokensChainBatchPostRequest** | [**ApiV1TokensChainBatchPostRequest**](ApiV1TokensChainBatchPostRequest.md)|  | 
+
+### Return type
+
+[**ApiV1TokensChainBatchPost200Response**](ApiV1TokensChainBatchPost200Response.md)
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **apiV1TokensChainContractAddressGet**
 > ApiV1TokensChainContractAddressGet200Response apiV1TokensChainContractAddressGet(chain, contractAddress, force)

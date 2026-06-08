@@ -17,6 +17,15 @@ void main() {
   // final instance = TokensApi();
 
   group('tests for TokensApi', () {
+    // Batch token metadata query
+    //
+    // Query multiple token metadata entries for the same chain. Checks cache → KV → external sources (CoinGecko → RPC). Returns results in the same order as the input addresses array.
+    //
+    //Future<ApiV1TokensChainBatchPost200Response> apiV1TokensChainBatchPost(String chain, ApiV1TokensChainBatchPostRequest apiV1TokensChainBatchPostRequest) async
+    test('test apiV1TokensChainBatchPost', () async {
+      // TODO
+    });
+
     // Get token metadata
     //
     // Fetch metadata for a specific token by chain and contract address. On first lookup, sources from CoinGecko → on-chain RPC eth_call. Supports ?force=true to skip cache and refresh from external sources.

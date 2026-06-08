@@ -31,6 +31,8 @@ part 'auth/http_bearer_auth.dart';
 part 'api/system_api.dart';
 part 'api/tokens_api.dart';
 
+part 'model/api_v1_tokens_chain_batch_post200_response.dart';
+part 'model/api_v1_tokens_chain_batch_post_request.dart';
 part 'model/api_v1_tokens_chain_contract_address_get200_response.dart';
 part 'model/health_get200_response.dart';
 part 'model/token_meta.dart';
