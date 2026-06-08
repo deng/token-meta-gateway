@@ -2,7 +2,7 @@ export const openApiSpec = {
   openapi: '3.0.3',
   info: {
     title: 'Token Metadata Gateway',
-    description: 'Token metadata lookup by chain (CAIP-2) and contract address. Stores symbol, decimals, name, and logo URL. Unknown EVM tokens are fetched from 1inch API on first request.',
+    description: 'Token metadata lookup by chain (CAIP-2) and contract address. Caches in KV on first lookup. Sources: CoinGecko API → on-chain ERC20 eth_call → Trust Wallet assets for logo.',
     version: '0.1.0',
   },
   servers: [
@@ -36,11 +36,12 @@ export const openApiSpec = {
     '/api/v1/tokens/{chain}/{contractAddress}': {
       get: {
         summary: 'Get token metadata',
-        description: 'Fetch metadata for a specific token by chain and contract address. If not found in KV, attempts to fetch from external API (1inch for EVM chains) and caches the result.',
+        description: 'Fetch metadata for a specific token by chain and contract address. On first lookup, sources from CoinGecko → on-chain RPC eth_call. Supports ?force=true to skip cache and refresh from external sources.',
         tags: ['Tokens'],
         parameters: [
           { name: 'chain', in: 'path', required: true, schema: { type: 'string' }, example: 'eip155:1' },
           { name: 'contractAddress', in: 'path', required: true, schema: { type: 'string' }, example: '0xdAC17F958D2ee523a2206206994597C13D831ec7' },
+          { name: 'force', in: 'query', required: false, schema: { type: 'string', enum: ['true'] }, description: 'Skip cache and force refresh from external sources' },
         ],
         responses: {
           '200': {
