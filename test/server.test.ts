@@ -174,6 +174,49 @@ describe('GET /api/v1/tokens/:chain/:contractAddress — external API fallback',
     const res = await app.fetch(mockRequest('GET', 'http://localhost/api/v1/tokens/sui:mainnet/0xunknown::coin::COIN'), env);
     expect(res.status).toBe(404);
   });
+
+  it('should force refresh from external API when force=true', async () => {
+    const kv = mockKV({
+      'token:eip155:1:0xabc': JSON.stringify({
+        chain: 'eip155:1',
+        contractAddress: '0xabc',
+        symbol: 'OLD',
+        decimals: 18,
+        name: 'Old Name',
+        logo: 'https://old.logo/old.png',
+        updatedAt: 0,
+      }),
+    });
+    const { app, env } = await createApp(mockEnv(kv));
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      const u = typeof url === 'string' ? url : '';
+      if (u.startsWith('https://api.coingecko.com')) {
+        return new Response(JSON.stringify({
+          name: 'New Token',
+          symbol: 'NEW',
+          image: { large: 'https://new.logo/new.png' },
+          detail_platforms: { ethereum: { decimal_place: 6 } },
+        }), { status: 200 });
+      }
+      return new Response('not found', { status: 404 });
+    });
+
+    const res = await app.fetch(mockRequest('GET', 'http://localhost/api/v1/tokens/eip155:1/0xabc?force=true'), env);
+
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.data.symbol).toBe('NEW');
+    expect(body.data.decimals).toBe(6);
+    expect(body.data.name).toBe('New Token');
+    expect(body.data.logo).toBe('https://new.logo/new.png');
+
+    // Verify KV was updated
+    const stored = await (kv.get as any)('token:eip155:1:0xabc', 'json');
+    expect(stored.symbol).toBe('NEW');
+
+    fetchSpy.mockRestore();
+  });
 });
 
 describe('GET /api/v1/tokens/:chain/:contractAddress', () => {

@@ -283,22 +283,23 @@ app.get('/api/v1/tokens/:chain/:contractAddress', async (c) => {
   const { chain, contractAddress } = c.req.param();
   const key = kvKey(chain, contractAddress);
   const ttl = parseInt(c.env.TOKEN_META_CACHE_TTL || '300', 10);
+  const force = c.req.query('force') === 'true';
 
-  // 1. Check in-memory cache (fastest, avoids KV read)
-  let data = cacheGet(key);
-  if (data) return c.json({ success: true, data });
+  let data: TokenMeta | null = null;
+  if (!force) {
+    data = cacheGet(key);
+    if (data) return c.json({ success: true, data });
 
-  // 2. Check KV
-  data = await c.env.TOKEN_META.get(key, 'json') as TokenMeta | null;
-  if (data) {
-    cacheSet(key, data, ttl);
-    return c.json({ success: true, data });
+    data = await c.env.TOKEN_META.get(key, 'json') as TokenMeta | null;
+    if (data) {
+      cacheSet(key, data, ttl);
+      return c.json({ success: true, data });
+    }
   }
 
-  // 3. Fetch from external API with deduplication
   const timeout = parseInt(c.env.REQUEST_TIMEOUT_SECS || '10', 10);
   let pending = pendingFetches.get(key);
-  if (!pending) {
+  if (!pending || force) {
     pending = fetchFromExternal(chain, contractAddress, timeout)
       .then(async (result) => {
         if (result) {
@@ -308,11 +309,18 @@ app.get('/api/v1/tokens/:chain/:contractAddress', async (c) => {
         pendingFetches.delete(key);
         return result;
       });
-    pendingFetches.set(key, pending);
+    if (!force) pendingFetches.set(key, pending);
   }
   data = await pending;
 
   if (!data) {
+    if (force) {
+      data = await c.env.TOKEN_META.get(key, 'json') as TokenMeta | null;
+      if (data) {
+        cacheSet(key, data, ttl);
+        return c.json({ success: true, data });
+      }
+    }
     return c.json({ success: false, error: 'Token not found' }, 404);
   }
   return c.json({ success: true, data });
