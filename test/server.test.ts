@@ -96,7 +96,7 @@ describe('GET /api/v1/tokens/:chain/:contractAddress — external API fallback',
     expect(body.data.symbol).toBe('UNI');
     expect(body.data.decimals).toBe(18);
     expect(body.data.name).toBe('Uniswap');
-    expect(body.data.logo).toBe('https://coin-images.coingecko.com/uni.png');
+    expect(body.data.logo).toBe('http://localhost/api/v1/tokens/eip155:1/0x1f9840a85d5af5bf1d1762f925bdaddc4201f984/logo');
     expect(rpcCalled).toBe(false);
 
     fetchSpy.mockRestore();
@@ -139,7 +139,7 @@ describe('GET /api/v1/tokens/:chain/:contractAddress — external API fallback',
     expect(body.data.decimals).toBe(18);
     expect(body.data.name).toBe('Some Token');
     expect(body.data.chain).toBe('eip155:1');
-    expect(body.data.logo).toBe('https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0x1234567890123456789012345678901234567890/logo.png');
+    expect(body.data.logo).toBe('http://localhost/api/v1/tokens/eip155:1/0x1234567890123456789012345678901234567890/logo');
     expect(rpcCallCount).toBe(3);
 
     const stored = await (kv.get as any)('token:eip155:1:0x1234567890123456789012345678901234567890', 'json');
@@ -209,7 +209,7 @@ describe('GET /api/v1/tokens/:chain/:contractAddress — external API fallback',
     expect(body.data.symbol).toBe('NEW');
     expect(body.data.decimals).toBe(6);
     expect(body.data.name).toBe('New Token');
-    expect(body.data.logo).toBe('https://new.logo/new.png');
+    expect(body.data.logo).toBe('http://localhost/api/v1/tokens/eip155:1/0xabc/logo');
 
     // Verify KV was updated
     const stored = await (kv.get as any)('token:eip155:1:0xabc', 'json');

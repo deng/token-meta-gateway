@@ -290,6 +290,12 @@ async function fetchFromExternal(chain: string, address: string, timeoutSecs: nu
   return null;
 }
 
+// Replace external logo URL with gateway proxy URL so clients never hit external CDNs
+function proxyLogoUrl(data: TokenMeta, host: string): TokenMeta {
+  if (!data.logo) return data;
+  return { ...data, logo: `${host}/api/v1/tokens/${data.chain}/${data.contractAddress}/logo` };
+}
+
 app.get('/api/v1/tokens/:chain/:contractAddress', async (c) => {
   if (!seeded) { seeded = true; seedBuiltin(c.env.TOKEN_META, new Set()); }
 
@@ -298,15 +304,16 @@ app.get('/api/v1/tokens/:chain/:contractAddress', async (c) => {
   const ttl = parseInt(c.env.TOKEN_META_CACHE_TTL || '300', 10);
   const force = c.req.query('force') === 'true';
 
+  const origin = new URL(c.req.url).origin;
   let data: TokenMeta | null = null;
   if (!force) {
     data = cacheGet(key);
-    if (data) return c.json({ success: true, data });
+    if (data) return c.json({ success: true, data: proxyLogoUrl(data, origin) });
 
     data = await c.env.TOKEN_META.get(key, 'json') as TokenMeta | null;
     if (data) {
       cacheSet(key, data, ttl);
-      return c.json({ success: true, data });
+      return c.json({ success: true, data: proxyLogoUrl(data, origin) });
     }
   }
 
@@ -331,12 +338,12 @@ app.get('/api/v1/tokens/:chain/:contractAddress', async (c) => {
       data = await c.env.TOKEN_META.get(key, 'json') as TokenMeta | null;
       if (data) {
         cacheSet(key, data, ttl);
-        return c.json({ success: true, data });
+        return c.json({ success: true, data: proxyLogoUrl(data, origin) });
       }
     }
     return c.json({ success: false, error: 'Token not found' }, 404);
   }
-  return c.json({ success: true, data });
+  return c.json({ success: true, data: proxyLogoUrl(data, origin) });
 });
 
 // Logo proxy — prefer CoinGecko image from KV, fall back to Trust Wallet CDN
