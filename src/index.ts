@@ -339,6 +339,14 @@ app.get('/api/v1/tokens/:chain/:contractAddress', async (c) => {
   return c.json({ success: true, data });
 });
 
+// Logo redirect — returns 302 to Trust Wallet assets CDN, zero server load
+app.get('/api/v1/tokens/:chain/:contractAddress/logo', (c) => {
+  const { chain, contractAddress } = c.req.param();
+  const url = logoUrl(chain, contractAddress);
+  if (!url) return c.json({ success: false, error: 'Chain not supported' }, 404);
+  return c.redirect(url, 302);
+});
+
 export default {
   fetch: app.fetch,
 };
