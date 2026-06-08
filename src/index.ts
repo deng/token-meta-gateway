@@ -339,12 +339,21 @@ app.get('/api/v1/tokens/:chain/:contractAddress', async (c) => {
   return c.json({ success: true, data });
 });
 
-// Logo redirect — returns 302 to Trust Wallet assets CDN, zero server load
-app.get('/api/v1/tokens/:chain/:contractAddress/logo', (c) => {
+// Logo proxy — fetch from Trust Wallet CDN and forward to client
+// Cloudflare edge caches the response, so GitHub is hit at most once per edge location
+app.get('/api/v1/tokens/:chain/:contractAddress/logo', async (c) => {
   const { chain, contractAddress } = c.req.param();
   const url = logoUrl(chain, contractAddress);
   if (!url) return c.json({ success: false, error: 'Chain not supported' }, 404);
-  return c.redirect(url, 302);
+
+  const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+  if (!res.ok) return c.json({ success: false, error: 'Logo not found' }, 404);
+
+  const buf = await res.arrayBuffer();
+  return c.body(buf, 200, {
+    'Content-Type': res.headers.get('Content-Type') || 'image/png',
+    'Cache-Control': 'public, max-age=86400, s-maxage=604800',
+  });
 });
 
 export default {
