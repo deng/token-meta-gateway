@@ -67,25 +67,60 @@ describe('GET /openapi.json', () => {
 });
 
 describe('GET /api/v1/tokens/:chain/:contractAddress — external API fallback', () => {
-  it('should fetch ERC20 metadata via RPC eth_call when not in KV', async () => {
+  it('should fetch from CoinGecko when available', async () => {
+    const kv = mockKV();
+    const { app, env } = await createApp(mockEnv(kv));
+
+    let rpcCalled = false;
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      const u = typeof url === 'string' ? url : '';
+      if (u.startsWith('https://api.coingecko.com')) {
+        return new Response(JSON.stringify({
+          name: 'Uniswap',
+          symbol: 'uni',
+          image: { large: 'https://coin-images.coingecko.com/uni.png' },
+          detail_platforms: { ethereum: { decimal_place: 18 } },
+        }), { status: 200 });
+      }
+      if (u.startsWith('https://ethereum-rpc.publicnode.com')) {
+        rpcCalled = true;
+        return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: '0x' }));
+      }
+      return new Response('not found', { status: 404 });
+    });
+
+    const res = await app.fetch(mockRequest('GET', 'http://localhost/api/v1/tokens/eip155:1/0x1f9840a85d5af5bf1d1762f925bdaddc4201f984'), env);
+
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.data.symbol).toBe('UNI');
+    expect(body.data.decimals).toBe(18);
+    expect(body.data.name).toBe('Uniswap');
+    expect(body.data.logo).toBe('https://coin-images.coingecko.com/uni.png');
+    expect(rpcCalled).toBe(false);
+
+    fetchSpy.mockRestore();
+  });
+
+  it('should fall back to RPC when CoinGecko fails', async () => {
     const kv = mockKV();
     const { app, env } = await createApp(mockEnv(kv));
 
     // ABI-encoded responses for eth_call
-    // name = "Some Token"
     const nameResult = '0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000a536f6d6520546f6b656e00000000000000000000000000000000000000000000';
-    // symbol = "SOME"
     const symbolResult = '0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000004534f4d4500000000000000000000000000000000000000000000000000000000';
-    // decimals = 18
     const decimalsResult = '0x0000000000000000000000000000000000000000000000000000000000000012';
 
-    let callCount = 0;
+    let rpcCallCount = 0;
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, opts) => {
-      if (typeof url === 'string' && url === 'https://ethereum-rpc.publicnode.com') {
-        callCount++;
+      const u = typeof url === 'string' ? url : '';
+      if (u.startsWith('https://api.coingecko.com')) {
+        return new Response('rate limited', { status: 429 });
+      }
+      if (u === 'https://ethereum-rpc.publicnode.com') {
+        rpcCallCount++;
         const body = JSON.parse((opts as RequestInit).body as string);
         const data = body.params[0].data as string;
-        // Return different responses based on function selector
         let result: string;
         if (data.startsWith('0x06fdde03')) result = nameResult;
         else if (data.startsWith('0x95d89b41')) result = symbolResult;
@@ -93,7 +128,6 @@ describe('GET /api/v1/tokens/:chain/:contractAddress — external API fallback',
         else result = '0x';
         return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result }));
       }
-      // Default fallthrough for other URLs (e.g., KV operations via app.fetch)
       return new Response('not found', { status: 404 });
     });
 
@@ -101,28 +135,28 @@ describe('GET /api/v1/tokens/:chain/:contractAddress — external API fallback',
 
     expect(res.status).toBe(200);
     const body = await res.json() as any;
-    expect(body.success).toBe(true);
     expect(body.data.symbol).toBe('SOME');
     expect(body.data.decimals).toBe(18);
     expect(body.data.name).toBe('Some Token');
     expect(body.data.chain).toBe('eip155:1');
-    expect(body.data.logo).toBeNull();
+    expect(body.data.logo).toBe('https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0x1234567890123456789012345678901234567890/logo.png');
+    expect(rpcCallCount).toBe(3);
 
-    // Should have made 3 eth_call requests (name, symbol, decimals)
-    expect(callCount).toBe(3);
-
-    // Verify cached in KV
     const stored = await (kv.get as any)('token:eip155:1:0x1234567890123456789012345678901234567890', 'json');
     expect(stored.symbol).toBe('SOME');
 
     fetchSpy.mockRestore();
   });
 
-  it('should return 404 when RPC returns no data', async () => {
+  it('should return 404 when both CoinGecko and RPC fail', async () => {
     const { app, env } = await createApp();
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
-      if (typeof url === 'string' && url === 'https://ethereum-rpc.publicnode.com') {
-        return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: '0x' }), { status: 200 });
+      const u = typeof url === 'string' ? url : '';
+      if (u.startsWith('https://api.coingecko.com')) {
+        return new Response('rate limited', { status: 429 });
+      }
+      if (u === 'https://ethereum-rpc.publicnode.com') {
+        return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: '0x' }));
       }
       return new Response('not found', { status: 404 });
     });
@@ -137,7 +171,6 @@ describe('GET /api/v1/tokens/:chain/:contractAddress — external API fallback',
 
   it('should return 404 for non-EVM chains not in KV', async () => {
     const { app, env } = await createApp();
-    // sui chain is not in EVM_RPCS mapping, returns 404 immediately without RPC call
     const res = await app.fetch(mockRequest('GET', 'http://localhost/api/v1/tokens/sui:mainnet/0xunknown::coin::COIN'), env);
     expect(res.status).toBe(404);
   });
@@ -168,7 +201,11 @@ describe('GET /api/v1/tokens/:chain/:contractAddress', () => {
   it('should return 404 for unknown token', async () => {
     const { app, env } = await createApp();
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
-      if (typeof url === 'string' && url.startsWith('https://ethereum-rpc.publicnode.com')) {
+      const u = typeof url === 'string' ? url : '';
+      if (u.startsWith('https://api.coingecko.com')) {
+        return new Response('rate limited', { status: 429 });
+      }
+      if (u.startsWith('https://ethereum-rpc.publicnode.com')) {
         return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: '0x' }));
       }
       return new Response('not found', { status: 404 });

@@ -37,7 +37,11 @@ async function seedBuiltin(kv: KVNamespace, seen: Set<string>): Promise<void> {
     seen.add(key);
     const existing = await kv.get(key, 'json');
     if (!existing) {
-      await kv.put(key, JSON.stringify({ ...token, updatedAt: Date.now() }));
+      await kv.put(key, JSON.stringify({
+        ...token,
+        logo: logoUrl(token.chain, token.contractAddress),
+        updatedAt: Date.now(),
+      }));
     }
   }
 }
@@ -69,7 +73,31 @@ function cacheSet(key: string, data: TokenMeta, ttlSecs: number): void {
   memoryCache.set(key, { data, expiresAt: Date.now() + ttlSecs * 1000 });
 }
 
-// EVM chain RPC endpoints for on-chain ERC20 metadata lookup
+// Trust Wallet chain name mapping for logo URLs
+const TW_CHAINS: Record<string, string> = {
+  'eip155:1': 'ethereum',
+  'eip155:56': 'smartchain',
+  'eip155:137': 'polygon',
+  'eip155:10': 'optimism',
+  'eip155:42161': 'arbitrum',
+  'eip155:43114': 'avalanchec',
+  'eip155:250': 'fantom',
+  'eip155:100': 'gnosis',
+  'eip155:8453': 'base',
+  'eip155:324': 'zksync',
+  'eip155:42220': 'celo',
+  'eip155:1284': 'moonbeam',
+  'eip155:1285': 'moonriver',
+  'eip155:25': 'cronos',
+  'tron:0x2b6653dc': 'tron',
+  'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': 'solana',
+};
+
+function logoUrl(chain: string, address: string): string | null {
+  const twChain = TW_CHAINS[chain];
+  if (!twChain) return null;
+  return `https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/${twChain}/assets/${address}/logo.png`;
+}
 const EVM_RPCS: Record<string, string> = {
   'eip155:1': 'https://ethereum-rpc.publicnode.com',
   'eip155:56': 'https://bsc-dataseed.binance.org/',
@@ -146,8 +174,64 @@ function decodeABIUint(hex: string): number | null {
   return isNaN(val) ? null : val;
 }
 
-// Fetch token metadata by reading ERC20 contract directly via RPC eth_call
-async function fetchFromExternal(chain: string, address: string, timeoutSecs: number): Promise<TokenMeta | null> {
+// CoinGecko chain name mapping
+const CG_CHAINS: Record<string, string> = {
+  'eip155:1': 'ethereum',
+  'eip155:56': 'binance-smart-chain',
+  'eip155:137': 'polygon-pos',
+  'eip155:10': 'optimistic-ethereum',
+  'eip155:42161': 'arbitrum-one',
+  'eip155:43114': 'avalanche',
+  'eip155:250': 'fantom',
+  'eip155:100': 'gnosis',
+  'eip155:8453': 'base',
+  'eip155:324': 'zksync',
+  'eip155:42220': 'celo',
+  'eip155:1284': 'moonbeam',
+  'eip155:1285': 'moonriver',
+  'eip155:25': 'cronos',
+  'tron:0x2b6653dc': 'tron',
+  'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp': 'solana',
+};
+
+async function fetchFromCoinGecko(chain: string, address: string, timeoutSecs: number): Promise<TokenMeta | null> {
+  const cgChain = CG_CHAINS[chain];
+  if (!cgChain) return null;
+
+  const addr = address.toLowerCase();
+  const url = `https://api.coingecko.com/api/v3/coins/${cgChain}/contract/${addr}`;
+
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'ZeroWallet/1.0' },
+      signal: AbortSignal.timeout(timeoutSecs * 1000),
+    });
+    if (!res.ok) return null;
+
+    const data = await res.json() as Record<string, unknown>;
+
+    const platforms = data.detail_platforms as Record<string, { decimal_place?: number }> | undefined;
+    const decimals = platforms?.[cgChain]?.decimal_place ?? null;
+    const symbol = data.symbol ? String(data.symbol).toUpperCase() : null;
+    if (!symbol || decimals == null) return null;
+
+    const cgImage = data.image as Record<string, string> | undefined;
+    return {
+      chain,
+      contractAddress: addr,
+      symbol,
+      decimals,
+      name: data.name ? String(data.name) : null,
+      logo: cgImage?.large || logoUrl(chain, addr),
+      updatedAt: Date.now(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Fetch token metadata from ERC20 contract via RPC eth_call (fallback when CoinGecko unavailable)
+async function fetchFromRPC(chain: string, address: string, timeoutSecs: number): Promise<TokenMeta | null> {
   const rpc = EVM_RPCS[chain];
   if (!rpc) return null;
 
@@ -170,9 +254,27 @@ async function fetchFromExternal(chain: string, address: string, timeoutSecs: nu
     symbol: symbol.toUpperCase(),
     decimals,
     name: nameHex ? decodeABIString(nameHex) ?? null : null,
-    logo: null,
+    logo: logoUrl(chain, addr),
     updatedAt: Date.now(),
   };
+}
+
+// Fetch token metadata: CoinGecko first, fall back to on-chain RPC
+async function fetchFromExternal(chain: string, address: string, timeoutSecs: number): Promise<TokenMeta | null> {
+  // Try CoinGecko first
+  if (CG_CHAINS[chain]) {
+    const cgTimeout = Math.min(timeoutSecs, 5);
+    const result = await fetchFromCoinGecko(chain, address, cgTimeout);
+    if (result) return result;
+  }
+
+  // Fall back to RPC eth_call for EVM chains
+  if (EVM_RPCS[chain]) {
+    const rpcTimeout = Math.max(1, timeoutSecs - 5);
+    return fetchFromRPC(chain, address, rpcTimeout);
+  }
+
+  return null;
 }
 
 app.get('/api/v1/tokens/:chain/:contractAddress', async (c) => {
