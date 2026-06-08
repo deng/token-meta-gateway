@@ -339,14 +339,31 @@ app.get('/api/v1/tokens/:chain/:contractAddress', async (c) => {
   return c.json({ success: true, data });
 });
 
-// Logo proxy — fetch from Trust Wallet CDN and forward to client
-// Cloudflare edge caches the response, so GitHub is hit at most once per edge location
+// Logo proxy — prefer CoinGecko image from KV, fall back to Trust Wallet CDN
 app.get('/api/v1/tokens/:chain/:contractAddress/logo', async (c) => {
-  const { chain, contractAddress } = c.req.param();
-  const url = logoUrl(chain, contractAddress);
-  if (!url) return c.json({ success: false, error: 'Chain not supported' }, 404);
+  if (!seeded) { seeded = true; seedBuiltin(c.env.TOKEN_META, new Set()); }
 
-  const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+  const { chain, contractAddress } = c.req.param();
+  const key = kvKey(chain, contractAddress);
+
+  // Try stored token metadata first (may have CoinGecko image)
+  let logo: string | null = null;
+  const cached = cacheGet(key);
+  if (cached?.logo) {
+    logo = cached.logo;
+  } else {
+    const stored = await c.env.TOKEN_META.get(key, 'json') as TokenMeta | null;
+    if (stored?.logo) {
+      logo = stored.logo;
+      cacheSet(key, stored, parseInt(c.env.TOKEN_META_CACHE_TTL || '300', 10));
+    }
+  }
+
+  // Fall back to Trust Wallet URL
+  if (!logo) logo = logoUrl(chain, contractAddress);
+  if (!logo) return c.json({ success: false, error: 'Chain not supported' }, 404);
+
+  const res = await fetch(logo, { signal: AbortSignal.timeout(10000) });
   if (!res.ok) return c.json({ success: false, error: 'Logo not found' }, 404);
 
   const buf = await res.arrayBuffer();
