@@ -4,6 +4,7 @@ import { swaggerUI } from '@hono/swagger-ui';
 import { openApiSpec } from './openapi';
 import { BUILTIN_TOKENS } from './builtin';
 import type { TokenMeta, HealthResponse, Env } from './types';
+import { keccak256 } from 'js-sha3';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -96,7 +97,19 @@ const TW_CHAINS: Record<string, string> = {
 function logoUrl(chain: string, address: string): string | null {
   const twChain = TW_CHAINS[chain];
   if (!twChain) return null;
-  return `https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/${twChain}/assets/${address}/logo.png`;
+  const addr = chain.startsWith('eip155:') && address.startsWith('0x') ? toChecksumAddress(address) : address;
+  return `https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/${twChain}/assets/${addr}/logo.png`;
+}
+
+// EIP-55 checksum address
+function toChecksumAddress(address: string): string {
+  const addr = address.toLowerCase().replace('0x', '');
+  const hash = keccak256(addr);
+  let checksummed = '0x';
+  for (let i = 0; i < 40; i++) {
+    checksummed += parseInt(hash[i], 16) >= 8 ? addr[i].toUpperCase() : addr[i];
+  }
+  return checksummed;
 }
 const EVM_RPCS: Record<string, string> = {
   'eip155:1': 'https://ethereum-rpc.publicnode.com',
