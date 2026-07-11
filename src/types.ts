@@ -14,6 +14,12 @@ export interface HealthResponse {
   version: string;
 }
 
+export interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+}
+
 export interface Env {
   TOKEN_META: KVNamespace;
   TOKEN_META_CACHE_TTL?: string;

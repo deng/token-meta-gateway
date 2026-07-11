@@ -128,9 +128,50 @@ export const openApiSpec = {
         },
       },
     },
+    '/api/v1/tokens/{chain}/list': {
+      get: {
+        summary: 'List tokens by chain',
+        description: 'List available tokens for a given chain. Currently supports Stellar (stellar:pubnet) via StellarExpert API proxy with pagination and search.',
+        tags: ['Tokens'],
+        parameters: [
+          { name: 'chain', in: 'path', required: true, schema: { type: 'string' }, example: 'stellar:pubnet' },
+          { name: 'limit', in: 'query', required: false, schema: { type: 'integer', default: 50, maximum: 200 }, description: 'Results per page (max 200)' },
+          { name: 'page', in: 'query', required: false, schema: { type: 'integer', default: 1 }, description: 'Page number' },
+          { name: 'search', in: 'query', required: false, schema: { type: 'string' }, description: 'Search by token code or name' },
+        ],
+        responses: {
+          '200': {
+            description: 'Paginated token list',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'array',
+                      items: { $ref: '#/components/schemas/TokenMeta' },
+                    },
+                    pagination: { $ref: '#/components/schemas/Pagination' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   },
   components: {
     schemas: {
+      Pagination: {
+        type: 'object',
+        properties: {
+          page: { type: 'integer', example: 1 },
+          limit: { type: 'integer', example: 50 },
+          total: { type: 'integer', example: 100 },
+        },
+      },
       TokenMeta: {
         type: 'object',
         properties: {

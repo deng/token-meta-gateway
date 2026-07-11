@@ -292,3 +292,195 @@ describe('CORS', () => {
     expect(res.headers.get('access-control-allow-origin')).toBe('*');
   });
 });
+
+describe('GET /api/v1/tokens/:chain/list — StellarExpert proxy', () => {
+  const stellarRecords = [
+    {
+      asset: 'USDC-GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN',
+      tomlInfo: {
+        code: 'USDC',
+        issuer: 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN',
+        orgName: 'USD Coin',
+        image: 'https://stellar.myfilebase.com/ipfs/logo.png',
+      },
+    },
+    {
+      asset: 'XLM-GD4Z3P3H6VY3P6Y5Y6Y5Y6Y5Y6Y5Y6Y5Y6Y5Y6Y5Y6',
+      tomlInfo: {
+        code: 'XLM',
+        issuer: 'GD4Z3P3H6VY3P6Y5Y6Y5Y6Y5Y6Y5Y6Y5Y6Y5Y6Y5Y6',
+        orgName: 'Lumen',
+      },
+    },
+  ];
+
+  it('should return paginated tokens for stellar:pubnet', async () => {
+    const { app, env } = await createApp();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      const u = typeof url === 'string' ? url : '';
+      if (u.startsWith('https://api.stellar.expert')) {
+        return new Response(JSON.stringify({
+          _embedded: { records: stellarRecords },
+          total: 2,
+        }), { status: 200 });
+      }
+      return new Response('not found', { status: 404 });
+    });
+
+    const res = await app.fetch(mockRequest('GET', 'http://localhost/api/v1/tokens/stellar:pubnet/list'), env);
+
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.success).toBe(true);
+    expect(body.data).toHaveLength(2);
+    expect(body.data[0].symbol).toBe('USDC');
+    expect(body.data[0].contractAddress).toBe('USDC-GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN');
+    expect(body.data[0].decimals).toBe(7);
+    expect(body.data[0].name).toBe('USD Coin');
+    expect(body.data[0].logo).toBe('https://stellar.myfilebase.com/ipfs/logo.png');
+    expect(body.data[0].chain).toBe('stellar:pubnet');
+    expect(body.data[1].symbol).toBe('XLM');
+    expect(body.pagination.page).toBe(1);
+    expect(body.pagination.limit).toBe(50);
+    expect(body.pagination.total).toBe(2);
+
+    fetchSpy.mockRestore();
+  });
+
+  it('should pass limit, page, and search parameters to StellarExpert', async () => {
+    const { app, env } = await createApp();
+    let requestUrl = '';
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      const u = typeof url === 'string' ? url : '';
+      if (u.startsWith('https://api.stellar.expert')) {
+        requestUrl = u;
+        return new Response(JSON.stringify({
+          _embedded: { records: [stellarRecords[0]] },
+          total: 1,
+        }), { status: 200 });
+      }
+      return new Response('not found', { status: 404 });
+    });
+
+    const res = await app.fetch(mockRequest('GET', 'http://localhost/api/v1/tokens/stellar:pubnet/list?limit=10&page=2&search=USDC'), env);
+
+    expect(res.status).toBe(200);
+    expect(requestUrl).toContain('limit=10');
+    expect(requestUrl).toContain('page=2');
+    expect(requestUrl).toContain('search=USDC');
+    const body = await res.json() as any;
+    expect(body.data).toHaveLength(1);
+
+    fetchSpy.mockRestore();
+  });
+
+  it('should return empty list for stellar:testnet', async () => {
+    const { app, env } = await createApp();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+      return new Response('should not be called', { status: 500 });
+    });
+
+    const res = await app.fetch(mockRequest('GET', 'http://localhost/api/v1/tokens/stellar:testnet/list'), env);
+
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.success).toBe(true);
+    expect(body.data).toHaveLength(0);
+    expect(body.pagination.total).toBe(0);
+
+    fetchSpy.mockRestore();
+  });
+
+  it('should return empty list for unsupported chains', async () => {
+    const { app, env } = await createApp();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+      return new Response('should not be called', { status: 500 });
+    });
+
+    const res = await app.fetch(mockRequest('GET', 'http://localhost/api/v1/tokens/eip155:1/list'), env);
+
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.success).toBe(true);
+    expect(body.data).toHaveLength(0);
+    expect(body.pagination.total).toBe(0);
+
+    fetchSpy.mockRestore();
+  });
+
+  it('should return empty list when StellarExpert API fails', async () => {
+    const { app, env } = await createApp();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      const u = typeof url === 'string' ? url : '';
+      if (u.startsWith('https://api.stellar.expert')) {
+        return new Response('service unavailable', { status: 503 });
+      }
+      return new Response('not found', { status: 404 });
+    });
+
+    const res = await app.fetch(mockRequest('GET', 'http://localhost/api/v1/tokens/stellar:pubnet/list'), env);
+
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.success).toBe(true);
+    expect(body.data).toHaveLength(0);
+
+    fetchSpy.mockRestore();
+  });
+
+  it('should clamp limit to max 200', async () => {
+    const { app, env } = await createApp();
+    let requestUrl = '';
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      const u = typeof url === 'string' ? url : '';
+      if (u.startsWith('https://api.stellar.expert')) {
+        requestUrl = u;
+        return new Response(JSON.stringify({
+          _embedded: { records: [] },
+          total: 0,
+        }), { status: 200 });
+      }
+      return new Response('not found', { status: 404 });
+    });
+
+    const res = await app.fetch(mockRequest('GET', 'http://localhost/api/v1/tokens/stellar:pubnet/list?limit=999'), env);
+
+    expect(res.status).toBe(200);
+    expect(requestUrl).toContain('limit=200');
+
+    fetchSpy.mockRestore();
+  });
+
+  it('should cache list responses in memory', async () => {
+    const { app, env } = await createApp();
+
+    let callCount = 0;
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      const u = typeof url === 'string' ? url : '';
+      if (u.startsWith('https://api.stellar.expert')) {
+        callCount++;
+        return new Response(JSON.stringify({
+          _embedded: { records: [stellarRecords[0]] },
+          total: 1,
+        }), { status: 200 });
+      }
+      return new Response('not found', { status: 404 });
+    });
+
+    // First request — fetches from API
+    const res1 = await app.fetch(mockRequest('GET', 'http://localhost/api/v1/tokens/stellar:pubnet/list'), env);
+    expect(res1.status).toBe(200);
+    expect(callCount).toBe(1);
+
+    // Second request with same params — uses cache
+    const res2 = await app.fetch(mockRequest('GET', 'http://localhost/api/v1/tokens/stellar:pubnet/list'), env);
+    expect(res2.status).toBe(200);
+    expect(callCount).toBe(1); // no additional call
+
+    const body = await res2.json() as any;
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].symbol).toBe('USDC');
+
+    fetchSpy.mockRestore();
+  });
+});

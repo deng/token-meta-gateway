@@ -3,7 +3,7 @@ import { cors } from 'hono/cors';
 import { swaggerUI } from '@hono/swagger-ui';
 import { openApiSpec } from './openapi';
 import { BUILTIN_TOKENS } from './builtin';
-import type { TokenMeta, HealthResponse, Env } from './types';
+import type { TokenMeta, HealthResponse, Pagination, Env } from './types';
 import { keccak256 } from 'js-sha3';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -72,6 +72,30 @@ function cacheGet(key: string): TokenMeta | null {
 
 function cacheSet(key: string, data: TokenMeta, ttlSecs: number): void {
   memoryCache.set(key, { data, expiresAt: Date.now() + ttlSecs * 1000 });
+}
+
+// ---- List cache (per-isolate, for token list endpoints) ----
+
+interface ListCacheEntry {
+  data: TokenMeta[];
+  pagination: Pagination;
+  expiresAt: number;
+}
+
+const listCache = new Map<string, ListCacheEntry>();
+
+function listCacheGet(key: string): { data: TokenMeta[]; pagination: Pagination } | null {
+  const entry = listCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    listCache.delete(key);
+    return null;
+  }
+  return { data: entry.data, pagination: entry.pagination };
+}
+
+function listCacheSet(key: string, data: TokenMeta[], pagination: Pagination, ttlSecs: number): void {
+  listCache.set(key, { data, pagination, expiresAt: Date.now() + ttlSecs * 1000 });
 }
 
 // Trust Wallet chain name mapping for logo URLs
@@ -295,6 +319,147 @@ function proxyLogoUrl(data: TokenMeta, host: string): TokenMeta {
   if (!data.logo) return data;
   return { ...data, logo: `${host}/api/v1/tokens/${data.chain}/${data.contractAddress}/logo` };
 }
+
+// ---- StellarExpert token list support ----
+
+const STELLAR_EXPERT_API = 'https://api.stellar.expert/explorer/public/asset';
+const LIST_CACHE_TTL = 300; // 5 minutes
+
+interface StellarExpertTomlInfo {
+  code?: string;
+  issuer?: string;
+  orgName?: string;
+  image?: string;
+  anchorAsset?: string;
+  anchorAssetType?: string;
+}
+
+interface StellarExpertRecord {
+  asset: string;
+  tomlInfo?: StellarExpertTomlInfo;
+}
+
+interface StellarExpertResponse {
+  _embedded: {
+    records: StellarExpertRecord[];
+  };
+  total: number;
+}
+
+function listCacheKey(chain: string, limit: number, page: number, search?: string): string {
+  return `list:${chain}:${limit}:${page}:${search || ''}`;
+}
+
+// Parse Stellar asset identifier into code and issuer.
+// Custom token asset format: {code}-{56-char-issuer}-{version}
+// Native XLM: just "XLM"
+function parseStellarAsset(asset: string, tomlInfo?: StellarExpertTomlInfo): { code: string; issuer: string | null } {
+  // Prefer tomlInfo when available
+  if (tomlInfo?.code) {
+    return { code: tomlInfo.code, issuer: tomlInfo.issuer || null };
+  }
+
+  // Native XLM — no issuer
+  if (asset === 'XLM') {
+    return { code: 'XLM', issuer: null };
+  }
+
+  // Parse from asset string: {code}-{56-char-issuer}-{version}
+  const parts = asset.split('-');
+  for (let i = 0; i < parts.length; i++) {
+    if (parts[i].length === 56 && parts[i].startsWith('G')) {
+      const code = parts.slice(0, i).join('-');
+      return { code, issuer: parts[i] };
+    }
+  }
+
+  // Fallback: treat entire asset as the code
+  return { code: asset, issuer: null };
+}
+
+async function fetchStellarAssets(limit: number, page: number, search?: string): Promise<{ data: TokenMeta[]; total: number } | null> {
+  const url = new URL(STELLAR_EXPERT_API);
+  url.searchParams.set('limit', String(limit));
+  url.searchParams.set('page', String(page));
+  if (search) url.searchParams.set('search', search);
+
+  try {
+    const res = await fetch(url.toString(), {
+      headers: { 'User-Agent': 'ZeroWallet/1.0' },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return null;
+
+    const json = await res.json() as StellarExpertResponse;
+    const records = json._embedded?.records || [];
+    return {
+      data: records.map(r => {
+        const { code, issuer } = parseStellarAsset(r.asset, r.tomlInfo);
+        return {
+          chain: 'stellar:pubnet',
+          contractAddress: issuer ? `${code}-${issuer}` : code,
+          symbol: code,
+          decimals: 7, // Stellar standard
+          name: r.tomlInfo?.orgName || null,
+          logo: r.tomlInfo?.image || null,
+          updatedAt: Date.now(),
+        };
+      }),
+      total: json.total,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Token list by chain — proxies StellarExpert public asset API
+app.get('/api/v1/tokens/:chain/list', async (c) => {
+  const { chain } = c.req.param();
+
+  // Only Stellar is supported for now
+  if (chain !== 'stellar:pubnet' && chain !== 'stellar:testnet') {
+    return c.json({
+      success: true,
+      data: [],
+      pagination: { page: 1, limit: 50, total: 0 },
+    });
+  }
+
+  // Stellar testnet has no StellarExpert support — return empty list
+  if (chain === 'stellar:testnet') {
+    return c.json({
+      success: true,
+      data: [],
+      pagination: { page: 1, limit: 50, total: 0 },
+    });
+  }
+
+  const limit = Math.min(Math.max(1, parseInt(c.req.query('limit') || '50', 10) || 50), 200);
+  const page = Math.max(1, parseInt(c.req.query('page') || '1', 10) || 1);
+  const search = c.req.query('search') || undefined;
+
+  // Check in-memory cache
+  const cacheKey = listCacheKey(chain, limit, page, search);
+  const cached = listCacheGet(cacheKey);
+  if (cached) {
+    return c.json({ success: true, ...cached });
+  }
+
+  // Fetch from StellarExpert
+  const result = await fetchStellarAssets(limit, page, search);
+  if (!result) {
+    return c.json({
+      success: true,
+      data: [],
+      pagination: { page, limit, total: 0 },
+    });
+  }
+
+  const pagination: Pagination = { page, limit, total: result.total };
+  listCacheSet(cacheKey, result.data, pagination, LIST_CACHE_TTL);
+
+  return c.json({ success: true, data: result.data, pagination });
+});
 
 app.get('/api/v1/tokens/:chain/:contractAddress', async (c) => {
   if (!seeded) { seeded = true; seedBuiltin(c.env.TOKEN_META, new Set()); }
