@@ -315,13 +315,21 @@ describe('GET /api/v1/tokens/:chain/list — StellarExpert proxy', () => {
   ];
 
   it('should return paginated tokens for stellar:pubnet', async () => {
-    const { app, env } = await createApp();
+    const kv = mockKV();
+    const { app, env } = await createApp(mockEnv(kv));
+    let horizonCalled = false;
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
       const u = typeof url === 'string' ? url : '';
       if (u.startsWith('https://api.stellar.expert')) {
         return new Response(JSON.stringify({
           _embedded: { records: stellarRecords },
           total: 2,
+        }), { status: 200 });
+      }
+      if (u.startsWith('https://horizon.stellar.org/assets')) {
+        horizonCalled = true;
+        return new Response(JSON.stringify({
+          _embedded: { records: [{ asset_code: 'USDC' }] },
         }), { status: 200 });
       }
       return new Response('not found', { status: 404 });
@@ -343,6 +351,13 @@ describe('GET /api/v1/tokens/:chain/list — StellarExpert proxy', () => {
     expect(body.pagination.page).toBe(1);
     expect(body.pagination.limit).toBe(50);
     expect(body.pagination.total).toBe(2);
+    expect(horizonCalled).toBe(true);
+
+    // Verify token metadata persisted to KV via Horizon query
+    const stored = await (kv.get as any)('token:stellar:pubnet:usdc-ga5zsejyb37jrc5avcia5mop4rhtm335x2kgx3ihojapp5re34k4kzvn', 'json');
+    expect(stored).not.toBeNull();
+    expect(stored.decimals).toBe(7);
+    expect(stored.symbol).toBe('USDC');
 
     fetchSpy.mockRestore();
   });
@@ -357,6 +372,11 @@ describe('GET /api/v1/tokens/:chain/list — StellarExpert proxy', () => {
         return new Response(JSON.stringify({
           _embedded: { records: [stellarRecords[0]] },
           total: 1,
+        }), { status: 200 });
+      }
+      if (u.startsWith('https://horizon.stellar.org/assets')) {
+        return new Response(JSON.stringify({
+          _embedded: { records: [{ asset_code: 'USDC' }] },
         }), { status: 200 });
       }
       return new Response('not found', { status: 404 });

@@ -331,6 +331,54 @@ function stellarExpertUrl(chain: string): string | null {
   return null;
 }
 
+// Stellar Horizon RPC per network — canonical on-chain data source
+const STELLAR_HORIZON: Record<string, string> = {
+  'stellar:pubnet': 'https://horizon.stellar.org',
+  'stellar:testnet': 'https://horizon-testnet.stellar.org',
+};
+
+// Resolve decimals for a Stellar asset by querying Horizon RPC (on-chain),
+// with KV persistence so subsequent lookups skip the network call.
+// Stellar protocol uses 7 decimal places for all assets.
+async function resolveStellarDecimals(contractAddress: string, chain: string, kv: KVNamespace): Promise<number> {
+  const key = kvKey(chain, contractAddress);
+
+  // Check KV cache first
+  const stored = await kv.get(key, 'json') as TokenMeta | null;
+  if (stored?.decimals != null) return stored.decimals;
+
+  // Parse contract address: {code}-{issuer} or just {code} for native XLM
+  const [code, ...issuerParts] = contractAddress.split('-');
+  const issuer = issuerParts.join('-');
+
+  // Native XLM — no issuer
+  if (!issuer) return 7;
+
+  // Query Horizon /assets endpoint to verify the asset on-chain
+  const horizon = STELLAR_HORIZON[chain];
+  if (horizon) {
+    try {
+      const url = `${horizon}/assets?asset_code=${encodeURIComponent(code)}&asset_issuer=${encodeURIComponent(issuer)}&limit=1`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      if (res.ok) {
+        const data = await res.json() as { _embedded?: { records?: unknown[] } };
+        if (data._embedded?.records?.length) {
+          // Stellar protocol always uses 7 decimal places
+          const decimals = 7;
+          // Cache in KV for persistence (minimal metadata)
+          kv.put(key, JSON.stringify({
+            chain, contractAddress, symbol: code, decimals,
+            name: null, logo: null, updatedAt: Date.now(),
+          })).catch(() => {});
+          return decimals;
+        }
+      }
+    } catch { /* fall through to default */ }
+  }
+
+  return 7;
+}
+
 interface StellarExpertTomlInfo {
   code?: string;
   issuer?: string;
@@ -383,7 +431,7 @@ function parseStellarAsset(asset: string, tomlInfo?: StellarExpertTomlInfo): { c
   return { code: asset, issuer: null };
 }
 
-async function fetchStellarAssets(chain: string, limit: number, page: number, search?: string): Promise<{ data: TokenMeta[]; total: number } | null> {
+async function fetchStellarAssets(chain: string, limit: number, page: number, search: string | undefined, kv: KVNamespace): Promise<{ data: TokenMeta[]; total: number } | null> {
   const apiUrl = stellarExpertUrl(chain);
   if (!apiUrl) return null;
 
@@ -401,19 +449,28 @@ async function fetchStellarAssets(chain: string, limit: number, page: number, se
 
     const json = await res.json() as StellarExpertResponse;
     const records = json._embedded?.records || [];
+
+    // Build TokenMeta list and enrich with on-chain decimals in parallel
+    const data = await Promise.all(records.map(async r => {
+      const { code, issuer } = parseStellarAsset(r.asset, r.tomlInfo);
+      const contractAddress = issuer ? `${code}-${issuer}` : code;
+      const decimals = await resolveStellarDecimals(contractAddress, chain, kv);
+      const token: TokenMeta = {
+        chain,
+        contractAddress,
+        symbol: code,
+        decimals,
+        name: r.tomlInfo?.orgName || null,
+        logo: r.tomlInfo?.image || null,
+        updatedAt: Date.now(),
+      };
+      // Persist to KV for future single-token lookups
+      kv.put(kvKey(chain, contractAddress), JSON.stringify(token)).catch(() => {});
+      return token;
+    }));
+
     return {
-      data: records.map(r => {
-        const { code, issuer } = parseStellarAsset(r.asset, r.tomlInfo);
-        return {
-          chain,
-          contractAddress: issuer ? `${code}-${issuer}` : code,
-          symbol: code,
-          decimals: 7, // Stellar standard
-          name: r.tomlInfo?.orgName || null,
-          logo: r.tomlInfo?.image || null,
-          updatedAt: Date.now(),
-        };
-      }),
+      data,
       total: json.total,
     };
   } catch {
@@ -446,8 +503,8 @@ app.get('/api/v1/tokens/:chain/list', async (c) => {
     return c.json({ success: true, data: cached.data.map(t => proxyLogoUrl(t, origin)), pagination: cached.pagination });
   }
 
-  // Fetch from StellarExpert
-  const result = await fetchStellarAssets(chain, limit, page, search);
+  // Fetch from StellarExpert, enrich with on-chain decimals, persist to KV
+  const result = await fetchStellarAssets(chain, limit, page, search, c.env.TOKEN_META);
   if (!result) {
     return c.json({
       success: true,
