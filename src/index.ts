@@ -437,12 +437,13 @@ app.get('/api/v1/tokens/:chain/list', async (c) => {
   const limit = Math.min(Math.max(1, parseInt(c.req.query('limit') || '50', 10) || 50), 200);
   const page = Math.max(1, parseInt(c.req.query('page') || '1', 10) || 1);
   const search = c.req.query('search') || undefined;
+  const origin = new URL(c.req.url).origin;
 
   // Check in-memory cache
   const cacheKey = listCacheKey(chain, limit, page, search);
   const cached = listCacheGet(cacheKey);
   if (cached) {
-    return c.json({ success: true, ...cached });
+    return c.json({ success: true, data: cached.data.map(t => proxyLogoUrl(t, origin)), pagination: cached.pagination });
   }
 
   // Fetch from StellarExpert
@@ -458,7 +459,7 @@ app.get('/api/v1/tokens/:chain/list', async (c) => {
   const pagination: Pagination = { page, limit, total: result.total };
   listCacheSet(cacheKey, result.data, pagination, LIST_CACHE_TTL);
 
-  return c.json({ success: true, data: result.data, pagination });
+  return c.json({ success: true, data: result.data.map(t => proxyLogoUrl(t, origin)), pagination });
 });
 
 app.get('/api/v1/tokens/:chain/:contractAddress', async (c) => {

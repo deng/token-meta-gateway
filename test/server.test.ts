@@ -337,7 +337,7 @@ describe('GET /api/v1/tokens/:chain/list — StellarExpert proxy', () => {
     expect(body.data[0].contractAddress).toBe('USDC-GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN');
     expect(body.data[0].decimals).toBe(7);
     expect(body.data[0].name).toBe('USD Coin');
-    expect(body.data[0].logo).toBe('https://stellar.myfilebase.com/ipfs/logo.png');
+    expect(body.data[0].logo).toBe('http://localhost/api/v1/tokens/stellar:pubnet/USDC-GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN/logo');
     expect(body.data[0].chain).toBe('stellar:pubnet');
     expect(body.data[1].symbol).toBe('XLM');
     expect(body.pagination.page).toBe(1);
