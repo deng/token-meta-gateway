@@ -323,6 +323,14 @@ function proxyLogoUrl(data: TokenMeta, host: string): TokenMeta {
 // ---- StellarExpert token list support ----
 
 const LIST_CACHE_TTL = 300; // 5 minutes
+const STELLAR_DECIMALS_CACHE_TTL = 360 * 24 * 3600; // 360 days
+
+// In-memory cache for Stellar decimals (360 day TTL — effectively permanent per Worker isolate)
+interface DecimalsCacheEntry {
+  decimals: number;
+  expiresAt: number;
+}
+const decimalsCache = new Map<string, DecimalsCacheEntry>();
 
 // StellarExpert API base URL per network
 function stellarExpertUrl(chain: string): string | null {
@@ -338,23 +346,36 @@ const STELLAR_HORIZON: Record<string, string> = {
 };
 
 // Resolve decimals for a Stellar asset by querying Horizon RPC (on-chain),
-// with KV persistence so subsequent lookups skip the network call.
+// with KV + in-memory (360d) persistence so subsequent lookups skip the network call.
 // Stellar protocol uses 7 decimal places for all assets.
 async function resolveStellarDecimals(contractAddress: string, chain: string, kv: KVNamespace): Promise<number> {
   const key = kvKey(chain, contractAddress);
 
-  // Check KV cache first
-  const stored = await kv.get(key, 'json') as TokenMeta | null;
-  if (stored?.decimals != null) return stored.decimals;
+  // 1. Check in-memory cache first (360 day TTL — virtually permanent per isolate)
+  const memKey = `decimals:${key}`;
+  const memEntry = decimalsCache.get(memKey);
+  if (memEntry && Date.now() < memEntry.expiresAt) {
+    return memEntry.decimals;
+  }
 
-  // Parse contract address: {code}-{issuer} or just {code} for native XLM
+  // 2. Check KV cache
+  const stored = await kv.get(key, 'json') as TokenMeta | null;
+  if (stored?.decimals != null) {
+    decimalsCache.set(memKey, { decimals: stored.decimals, expiresAt: Date.now() + STELLAR_DECIMALS_CACHE_TTL * 1000 });
+    return stored.decimals;
+  }
+
+  // 3. Parse contract address: {code}-{issuer} or just {code} for native XLM
   const [code, ...issuerParts] = contractAddress.split('-');
   const issuer = issuerParts.join('-');
 
   // Native XLM — no issuer
-  if (!issuer) return 7;
+  if (!issuer) {
+    decimalsCache.set(memKey, { decimals: 7, expiresAt: Date.now() + STELLAR_DECIMALS_CACHE_TTL * 1000 });
+    return 7;
+  }
 
-  // Query Horizon /assets endpoint to verify the asset on-chain
+  // 4. Query Horizon /assets endpoint to verify the asset on-chain
   const horizon = STELLAR_HORIZON[chain];
   if (horizon) {
     try {
@@ -365,7 +386,8 @@ async function resolveStellarDecimals(contractAddress: string, chain: string, kv
         if (data._embedded?.records?.length) {
           // Stellar protocol always uses 7 decimal places
           const decimals = 7;
-          // Cache in KV for persistence (minimal metadata)
+          // Cache in memory and KV
+          decimalsCache.set(memKey, { decimals, expiresAt: Date.now() + STELLAR_DECIMALS_CACHE_TTL * 1000 });
           kv.put(key, JSON.stringify({
             chain, contractAddress, symbol: code, decimals,
             name: null, logo: null, updatedAt: Date.now(),
@@ -376,6 +398,8 @@ async function resolveStellarDecimals(contractAddress: string, chain: string, kv
     } catch { /* fall through to default */ }
   }
 
+  // 5. Safe fallback
+  decimalsCache.set(memKey, { decimals: 7, expiresAt: Date.now() + STELLAR_DECIMALS_CACHE_TTL * 1000 });
   return 7;
 }
 
