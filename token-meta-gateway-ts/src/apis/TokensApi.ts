@@ -18,6 +18,7 @@ import type {
   ApiV1TokensChainBatchPost200Response,
   ApiV1TokensChainBatchPostRequest,
   ApiV1TokensChainContractAddressGet200Response,
+  ApiV1TokensChainListGet200Response,
 } from '../models/index';
 import {
     ApiV1TokensChainBatchPost200ResponseFromJSON,
@@ -26,6 +27,8 @@ import {
     ApiV1TokensChainBatchPostRequestToJSON,
     ApiV1TokensChainContractAddressGet200ResponseFromJSON,
     ApiV1TokensChainContractAddressGet200ResponseToJSON,
+    ApiV1TokensChainListGet200ResponseFromJSON,
+    ApiV1TokensChainListGet200ResponseToJSON,
 } from '../models/index';
 
 export interface ApiV1TokensChainBatchPostOperationRequest {
@@ -42,6 +45,13 @@ export interface ApiV1TokensChainContractAddressGetRequest {
 export interface ApiV1TokensChainContractAddressLogoGetRequest {
     chain: string;
     contractAddress: string;
+}
+
+export interface ApiV1TokensChainListGetRequest {
+    chain: string;
+    limit?: number;
+    page?: number;
+    search?: string;
 }
 
 /**
@@ -130,6 +140,36 @@ export interface TokensApiInterface {
      * Get token logo
      */
     apiV1TokensChainContractAddressLogoGet(requestParameters: ApiV1TokensChainContractAddressLogoGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Blob>;
+
+    /**
+     * Creates request options for apiV1TokensChainListGet without sending the request
+     * @param {string} chain 
+     * @param {number} [limit] Results per page (max 200)
+     * @param {number} [page] Page number
+     * @param {string} [search] Search by token code or name
+     * @throws {RequiredError}
+     * @memberof TokensApiInterface
+     */
+    apiV1TokensChainListGetRequestOpts(requestParameters: ApiV1TokensChainListGetRequest): Promise<runtime.RequestOpts>;
+
+    /**
+     * List available tokens for a given chain. Currently supports Stellar (stellar:pubnet) via StellarExpert API proxy with pagination and search.
+     * @summary List tokens by chain
+     * @param {string} chain 
+     * @param {number} [limit] Results per page (max 200)
+     * @param {number} [page] Page number
+     * @param {string} [search] Search by token code or name
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof TokensApiInterface
+     */
+    apiV1TokensChainListGetRaw(requestParameters: ApiV1TokensChainListGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<ApiV1TokensChainListGet200Response>>;
+
+    /**
+     * List available tokens for a given chain. Currently supports Stellar (stellar:pubnet) via StellarExpert API proxy with pagination and search.
+     * List tokens by chain
+     */
+    apiV1TokensChainListGet(requestParameters: ApiV1TokensChainListGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ApiV1TokensChainListGet200Response>;
 
 }
 
@@ -306,6 +346,65 @@ export class TokensApi extends runtime.BaseAPI implements TokensApiInterface {
      */
     async apiV1TokensChainContractAddressLogoGet(requestParameters: ApiV1TokensChainContractAddressLogoGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Blob> {
         const response = await this.apiV1TokensChainContractAddressLogoGetRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Creates request options for apiV1TokensChainListGet without sending the request
+     */
+    async apiV1TokensChainListGetRequestOpts(requestParameters: ApiV1TokensChainListGetRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['chain'] == null) {
+            throw new runtime.RequiredError(
+                'chain',
+                'Required parameter "chain" was null or undefined when calling apiV1TokensChainListGet().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        if (requestParameters['limit'] != null) {
+            queryParameters['limit'] = requestParameters['limit'];
+        }
+
+        if (requestParameters['page'] != null) {
+            queryParameters['page'] = requestParameters['page'];
+        }
+
+        if (requestParameters['search'] != null) {
+            queryParameters['search'] = requestParameters['search'];
+        }
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+
+        let urlPath = `/api/v1/tokens/{chain}/list`;
+        urlPath = urlPath.replace(`{${"chain"}}`, encodeURIComponent(String(requestParameters['chain'])));
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     * List available tokens for a given chain. Currently supports Stellar (stellar:pubnet) via StellarExpert API proxy with pagination and search.
+     * List tokens by chain
+     */
+    async apiV1TokensChainListGetRaw(requestParameters: ApiV1TokensChainListGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<ApiV1TokensChainListGet200Response>> {
+        const requestOptions = await this.apiV1TokensChainListGetRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => ApiV1TokensChainListGet200ResponseFromJSON(jsonValue));
+    }
+
+    /**
+     * List available tokens for a given chain. Currently supports Stellar (stellar:pubnet) via StellarExpert API proxy with pagination and search.
+     * List tokens by chain
+     */
+    async apiV1TokensChainListGet(requestParameters: ApiV1TokensChainListGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ApiV1TokensChainListGet200Response> {
+        const response = await this.apiV1TokensChainListGetRaw(requestParameters, initOverrides);
         return await response.value();
     }
 

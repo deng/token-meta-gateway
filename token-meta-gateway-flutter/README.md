@@ -62,6 +62,7 @@ Class | Method | HTTP request | Description
 *TokensApi* | [**apiV1TokensChainBatchPost**](doc//TokensApi.md#apiv1tokenschainbatchpost) | **POST** /api/v1/tokens/{chain}/batch | Batch token metadata query
 *TokensApi* | [**apiV1TokensChainContractAddressGet**](doc//TokensApi.md#apiv1tokenschaincontractaddressget) | **GET** /api/v1/tokens/{chain}/{contractAddress} | Get token metadata
 *TokensApi* | [**apiV1TokensChainContractAddressLogoGet**](doc//TokensApi.md#apiv1tokenschaincontractaddresslogoget) | **GET** /api/v1/tokens/{chain}/{contractAddress}/logo | Get token logo
+*TokensApi* | [**apiV1TokensChainListGet**](doc//TokensApi.md#apiv1tokenschainlistget) | **GET** /api/v1/tokens/{chain}/list | List tokens by chain
 
 
 ## Documentation For Models
@@ -69,7 +70,9 @@ Class | Method | HTTP request | Description
  - [ApiV1TokensChainBatchPost200Response](doc//ApiV1TokensChainBatchPost200Response.md)
  - [ApiV1TokensChainBatchPostRequest](doc//ApiV1TokensChainBatchPostRequest.md)
  - [ApiV1TokensChainContractAddressGet200Response](doc//ApiV1TokensChainContractAddressGet200Response.md)
+ - [ApiV1TokensChainListGet200Response](doc//ApiV1TokensChainListGet200Response.md)
  - [HealthGet200Response](doc//HealthGet200Response.md)
+ - [Pagination](doc//Pagination.md)
  - [TokenMeta](doc//TokenMeta.md)
 
 

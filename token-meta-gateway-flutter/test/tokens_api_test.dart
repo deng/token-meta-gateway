@@ -44,5 +44,14 @@ void main() {
       // TODO
     });
 
+    // List tokens by chain
+    //
+    // List available tokens for a given chain. Currently supports Stellar (stellar:pubnet) via StellarExpert API proxy with pagination and search.
+    //
+    //Future<ApiV1TokensChainListGet200Response> apiV1TokensChainListGet(String chain, { int limit, int page, String search }) async
+    test('test apiV1TokensChainListGet', () async {
+      // TODO
+    });
+
   });
 }

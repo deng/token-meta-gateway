@@ -12,6 +12,7 @@ Method | HTTP request | Description
 [**apiV1TokensChainBatchPost**](TokensApi.md#apiv1tokenschainbatchpost) | **POST** /api/v1/tokens/{chain}/batch | Batch token metadata query
 [**apiV1TokensChainContractAddressGet**](TokensApi.md#apiv1tokenschaincontractaddressget) | **GET** /api/v1/tokens/{chain}/{contractAddress} | Get token metadata
 [**apiV1TokensChainContractAddressLogoGet**](TokensApi.md#apiv1tokenschaincontractaddresslogoget) | **GET** /api/v1/tokens/{chain}/{contractAddress}/logo | Get token logo
+[**apiV1TokensChainListGet**](TokensApi.md#apiv1tokenschainlistget) | **GET** /api/v1/tokens/{chain}/list | List tokens by chain
 
 
 # **apiV1TokensChainBatchPost**
@@ -148,6 +149,55 @@ No authorization required
 
  - **Content-Type**: Not defined
  - **Accept**: image/png
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **apiV1TokensChainListGet**
+> ApiV1TokensChainListGet200Response apiV1TokensChainListGet(chain, limit, page, search)
+
+List tokens by chain
+
+List available tokens for a given chain. Currently supports Stellar (stellar:pubnet) via StellarExpert API proxy with pagination and search.
+
+### Example
+```dart
+import 'package:token_meta_gateway/api.dart';
+
+final api_instance = TokensApi();
+final chain = stellar:pubnet; // String | 
+final limit = 56; // int | Results per page (max 200)
+final page = 56; // int | Page number
+final search = search_example; // String | Search by token code or name
+
+try {
+    final result = api_instance.apiV1TokensChainListGet(chain, limit, page, search);
+    print(result);
+} catch (e) {
+    print('Exception when calling TokensApi->apiV1TokensChainListGet: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **chain** | **String**|  | 
+ **limit** | **int**| Results per page (max 200) | [optional] [default to 50]
+ **page** | **int**| Page number | [optional] [default to 1]
+ **search** | **String**| Search by token code or name | [optional] 
+
+### Return type
+
+[**ApiV1TokensChainListGet200Response**](ApiV1TokensChainListGet200Response.md)
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

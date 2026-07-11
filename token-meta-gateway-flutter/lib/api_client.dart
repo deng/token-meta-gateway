@@ -188,8 +188,12 @@ class ApiClient {
           return ApiV1TokensChainBatchPostRequest.fromJson(value);
         case 'ApiV1TokensChainContractAddressGet200Response':
           return ApiV1TokensChainContractAddressGet200Response.fromJson(value);
+        case 'ApiV1TokensChainListGet200Response':
+          return ApiV1TokensChainListGet200Response.fromJson(value);
         case 'HealthGet200Response':
           return HealthGet200Response.fromJson(value);
+        case 'Pagination':
+          return Pagination.fromJson(value);
         case 'TokenMeta':
           return TokenMeta.fromJson(value);
         default:

@@ -7,6 +7,7 @@ All URIs are relative to *https://token-meta.bithub.pro*
 | [**apiV1TokensChainBatchPost**](TokensApi.md#apiv1tokenschainbatchpostoperation) | **POST** /api/v1/tokens/{chain}/batch | Batch token metadata query |
 | [**apiV1TokensChainContractAddressGet**](TokensApi.md#apiv1tokenschaincontractaddressget) | **GET** /api/v1/tokens/{chain}/{contractAddress} | Get token metadata |
 | [**apiV1TokensChainContractAddressLogoGet**](TokensApi.md#apiv1tokenschaincontractaddresslogoget) | **GET** /api/v1/tokens/{chain}/{contractAddress}/logo | Get token logo |
+| [**apiV1TokensChainListGet**](TokensApi.md#apiv1tokenschainlistget) | **GET** /api/v1/tokens/{chain}/list | List tokens by chain |
 
 
 
@@ -222,6 +223,82 @@ No authorization required
 |-------------|-------------|------------------|
 | **200** | Logo image (PNG) |  -  |
 | **404** | Logo not found or chain not supported |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1TokensChainListGet
+
+> ApiV1TokensChainListGet200Response apiV1TokensChainListGet(chain, limit, page, search)
+
+List tokens by chain
+
+List available tokens for a given chain. Currently supports Stellar (stellar:pubnet) via StellarExpert API proxy with pagination and search.
+
+### Example
+
+```ts
+import {
+  Configuration,
+  TokensApi,
+} from 'token-meta-gateway';
+import type { ApiV1TokensChainListGetRequest } from 'token-meta-gateway';
+
+async function example() {
+  console.log("🚀 Testing token-meta-gateway SDK...");
+  const api = new TokensApi();
+
+  const body = {
+    // string
+    chain: stellar:pubnet,
+    // number | Results per page (max 200) (optional)
+    limit: 56,
+    // number | Page number (optional)
+    page: 56,
+    // string | Search by token code or name (optional)
+    search: search_example,
+  } satisfies ApiV1TokensChainListGetRequest;
+
+  try {
+    const data = await api.apiV1TokensChainListGet(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **chain** | `string` |  | [Defaults to `undefined`] |
+| **limit** | `number` | Results per page (max 200) | [Optional] [Defaults to `50`] |
+| **page** | `number` | Page number | [Optional] [Defaults to `1`] |
+| **search** | `string` | Search by token code or name | [Optional] [Defaults to `undefined`] |
+
+### Return type
+
+[**ApiV1TokensChainListGet200Response**](ApiV1TokensChainListGet200Response.md)
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: `application/json`
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | Paginated token list |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
