@@ -374,10 +374,19 @@ describe('GET /api/v1/tokens/:chain/list — StellarExpert proxy', () => {
     fetchSpy.mockRestore();
   });
 
-  it('should return empty list for stellar:testnet', async () => {
+  it('should fetch from StellarExpert testnet API for stellar:testnet', async () => {
     const { app, env } = await createApp();
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
-      return new Response('should not be called', { status: 500 });
+    let requestUrl = '';
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      const u = typeof url === 'string' ? url : '';
+      if (u.startsWith('https://api.stellar.expert/explorer/testnet/asset')) {
+        requestUrl = u;
+        return new Response(JSON.stringify({
+          _embedded: { records: [stellarRecords[0]] },
+          total: 1,
+        }), { status: 200 });
+      }
+      return new Response('not found', { status: 404 });
     });
 
     const res = await app.fetch(mockRequest('GET', 'http://localhost/api/v1/tokens/stellar:testnet/list'), env);
@@ -385,8 +394,10 @@ describe('GET /api/v1/tokens/:chain/list — StellarExpert proxy', () => {
     expect(res.status).toBe(200);
     const body = await res.json() as any;
     expect(body.success).toBe(true);
-    expect(body.data).toHaveLength(0);
-    expect(body.pagination.total).toBe(0);
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].chain).toBe('stellar:testnet');
+    expect(body.data[0].symbol).toBe('USDC');
+    expect(requestUrl).toContain('/explorer/testnet/asset');
 
     fetchSpy.mockRestore();
   });

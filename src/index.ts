@@ -322,8 +322,14 @@ function proxyLogoUrl(data: TokenMeta, host: string): TokenMeta {
 
 // ---- StellarExpert token list support ----
 
-const STELLAR_EXPERT_API = 'https://api.stellar.expert/explorer/public/asset';
 const LIST_CACHE_TTL = 300; // 5 minutes
+
+// StellarExpert API base URL per network
+function stellarExpertUrl(chain: string): string | null {
+  if (chain === 'stellar:pubnet') return 'https://api.stellar.expert/explorer/public/asset';
+  if (chain === 'stellar:testnet') return 'https://api.stellar.expert/explorer/testnet/asset';
+  return null;
+}
 
 interface StellarExpertTomlInfo {
   code?: string;
@@ -377,8 +383,11 @@ function parseStellarAsset(asset: string, tomlInfo?: StellarExpertTomlInfo): { c
   return { code: asset, issuer: null };
 }
 
-async function fetchStellarAssets(limit: number, page: number, search?: string): Promise<{ data: TokenMeta[]; total: number } | null> {
-  const url = new URL(STELLAR_EXPERT_API);
+async function fetchStellarAssets(chain: string, limit: number, page: number, search?: string): Promise<{ data: TokenMeta[]; total: number } | null> {
+  const apiUrl = stellarExpertUrl(chain);
+  if (!apiUrl) return null;
+
+  const url = new URL(apiUrl);
   url.searchParams.set('limit', String(limit));
   url.searchParams.set('page', String(page));
   if (search) url.searchParams.set('search', search);
@@ -396,7 +405,7 @@ async function fetchStellarAssets(limit: number, page: number, search?: string):
       data: records.map(r => {
         const { code, issuer } = parseStellarAsset(r.asset, r.tomlInfo);
         return {
-          chain: 'stellar:pubnet',
+          chain,
           contractAddress: issuer ? `${code}-${issuer}` : code,
           symbol: code,
           decimals: 7, // Stellar standard
@@ -417,16 +426,7 @@ app.get('/api/v1/tokens/:chain/list', async (c) => {
   const { chain } = c.req.param();
 
   // Only Stellar is supported for now
-  if (chain !== 'stellar:pubnet' && chain !== 'stellar:testnet') {
-    return c.json({
-      success: true,
-      data: [],
-      pagination: { page: 1, limit: 50, total: 0 },
-    });
-  }
-
-  // Stellar testnet has no StellarExpert support — return empty list
-  if (chain === 'stellar:testnet') {
+  if (!stellarExpertUrl(chain)) {
     return c.json({
       success: true,
       data: [],
@@ -446,7 +446,7 @@ app.get('/api/v1/tokens/:chain/list', async (c) => {
   }
 
   // Fetch from StellarExpert
-  const result = await fetchStellarAssets(limit, page, search);
+  const result = await fetchStellarAssets(chain, limit, page, search);
   if (!result) {
     return c.json({
       success: true,
