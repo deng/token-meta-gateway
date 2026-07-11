@@ -5,7 +5,9 @@ README.md
 docs/ApiV1TokensChainBatchPost200Response.md
 docs/ApiV1TokensChainBatchPostRequest.md
 docs/ApiV1TokensChainContractAddressGet200Response.md
+docs/ApiV1TokensChainListGet200Response.md
 docs/HealthGet200Response.md
+docs/Pagination.md
 docs/SystemApi.md
 docs/TokenMeta.md
 docs/TokensApi.md
@@ -17,7 +19,9 @@ src/index.ts
 src/models/ApiV1TokensChainBatchPost200Response.ts
 src/models/ApiV1TokensChainBatchPostRequest.ts
 src/models/ApiV1TokensChainContractAddressGet200Response.ts
+src/models/ApiV1TokensChainListGet200Response.ts
 src/models/HealthGet200Response.ts
+src/models/Pagination.ts
 src/models/TokenMeta.ts
 src/models/index.ts
 src/runtime.ts

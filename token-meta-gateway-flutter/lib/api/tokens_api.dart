@@ -210,4 +210,89 @@ class TokensApi {
     }
     return null;
   }
+
+  /// List tokens by chain
+  ///
+  /// List available tokens for a given chain. Currently supports Stellar (stellar:pubnet) via StellarExpert API proxy with pagination and search.
+  ///
+  /// Note: This method returns the HTTP [Response].
+  ///
+  /// Parameters:
+  ///
+  /// * [String] chain (required):
+  ///
+  /// * [int] limit:
+  ///   Results per page (max 200)
+  ///
+  /// * [int] page:
+  ///   Page number
+  ///
+  /// * [String] search:
+  ///   Search by token code or name
+  Future<Response> apiV1TokensChainListGetWithHttpInfo(String chain, { int? limit, int? page, String? search, }) async {
+    // ignore: prefer_const_declarations
+    final path = r'/api/v1/tokens/{chain}/list'
+      .replaceAll('{chain}', chain);
+
+    // ignore: prefer_final_locals
+    Object? postBody;
+
+    final queryParams = <QueryParam>[];
+    final headerParams = <String, String>{};
+    final formParams = <String, String>{};
+
+    if (limit != null) {
+      queryParams.addAll(_queryParams('', 'limit', limit));
+    }
+    if (page != null) {
+      queryParams.addAll(_queryParams('', 'page', page));
+    }
+    if (search != null) {
+      queryParams.addAll(_queryParams('', 'search', search));
+    }
+
+    const contentTypes = <String>[];
+
+
+    return apiClient.invokeAPI(
+      path,
+      'GET',
+      queryParams,
+      postBody,
+      headerParams,
+      formParams,
+      contentTypes.isEmpty ? null : contentTypes.first,
+    );
+  }
+
+  /// List tokens by chain
+  ///
+  /// List available tokens for a given chain. Currently supports Stellar (stellar:pubnet) via StellarExpert API proxy with pagination and search.
+  ///
+  /// Parameters:
+  ///
+  /// * [String] chain (required):
+  ///
+  /// * [int] limit:
+  ///   Results per page (max 200)
+  ///
+  /// * [int] page:
+  ///   Page number
+  ///
+  /// * [String] search:
+  ///   Search by token code or name
+  Future<ApiV1TokensChainListGet200Response?> apiV1TokensChainListGet(String chain, { int? limit, int? page, String? search, }) async {
+    final response = await apiV1TokensChainListGetWithHttpInfo(chain,  limit: limit, page: page, search: search, );
+    if (response.statusCode >= HttpStatus.badRequest) {
+      throw ApiException(response.statusCode, await _decodeBodyBytes(response));
+    }
+    // When a remote server returns no body with a status of 204, we shall not decode it.
+    // At the time of writing this, `dart:convert` will throw an "Unexpected end of input"
+    // FormatException when trying to decode an empty string.
+    if (response.body.isNotEmpty && response.statusCode != HttpStatus.noContent) {
+      return await apiClient.deserializeAsync(await _decodeBodyBytes(response), 'ApiV1TokensChainListGet200Response',) as ApiV1TokensChainListGet200Response;
+    
+    }
+    return null;
+  }
 }

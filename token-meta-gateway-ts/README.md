@@ -49,6 +49,7 @@ All URIs are relative to *https://token-meta.bithub.pro*
 *TokensApi* | [**apiV1TokensChainBatchPost**](docs/TokensApi.md#apiv1tokenschainbatchpostoperation) | **POST** /api/v1/tokens/{chain}/batch | Batch token metadata query
 *TokensApi* | [**apiV1TokensChainContractAddressGet**](docs/TokensApi.md#apiv1tokenschaincontractaddressget) | **GET** /api/v1/tokens/{chain}/{contractAddress} | Get token metadata
 *TokensApi* | [**apiV1TokensChainContractAddressLogoGet**](docs/TokensApi.md#apiv1tokenschaincontractaddresslogoget) | **GET** /api/v1/tokens/{chain}/{contractAddress}/logo | Get token logo
+*TokensApi* | [**apiV1TokensChainListGet**](docs/TokensApi.md#apiv1tokenschainlistget) | **GET** /api/v1/tokens/{chain}/list | List tokens by chain
 
 
 ### Models
@@ -56,7 +57,9 @@ All URIs are relative to *https://token-meta.bithub.pro*
 - [ApiV1TokensChainBatchPost200Response](docs/ApiV1TokensChainBatchPost200Response.md)
 - [ApiV1TokensChainBatchPostRequest](docs/ApiV1TokensChainBatchPostRequest.md)
 - [ApiV1TokensChainContractAddressGet200Response](docs/ApiV1TokensChainContractAddressGet200Response.md)
+- [ApiV1TokensChainListGet200Response](docs/ApiV1TokensChainListGet200Response.md)
 - [HealthGet200Response](docs/HealthGet200Response.md)
+- [Pagination](docs/Pagination.md)
 - [TokenMeta](docs/TokenMeta.md)
 
 ### Authorization

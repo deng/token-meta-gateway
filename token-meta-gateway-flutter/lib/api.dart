@@ -34,7 +34,9 @@ part 'api/tokens_api.dart';
 part 'model/api_v1_tokens_chain_batch_post200_response.dart';
 part 'model/api_v1_tokens_chain_batch_post_request.dart';
 part 'model/api_v1_tokens_chain_contract_address_get200_response.dart';
+part 'model/api_v1_tokens_chain_list_get200_response.dart';
 part 'model/health_get200_response.dart';
+part 'model/pagination.dart';
 part 'model/token_meta.dart';
 
 
